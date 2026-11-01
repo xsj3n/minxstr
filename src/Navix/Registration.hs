@@ -17,17 +17,20 @@ import Crypto.Random (getRandomBytes)
 import qualified Data.ByteArray as BA
 import Data.Time (getCurrentTime)
 import qualified Data.List.NonEmpty as NE
+import Control.Exception (throwIO)
 
-registerMachine :: Request -> DatabaseConnection -> IO Bool
+registerMachine :: Request -> DatabaseConnection -> IO ()
 registerMachine request conn = do
   maybeNixMachine       <- processNixMachineEnrollRequest request
-  if isNothing maybeNixMachine then return False
+  if isNothing maybeNixMachine then throwIO $ userError "Failed to process machine record received from client."
   else do
-    let nixMachine = fromJust maybeNixMachine
-        tokenHash  = hash $ BSC.pack $ enrollmentToken nixMachine :: Digest SHA256
+    let enrNixMachine = fromJust maybeNixMachine
+        tokenHash  = hash $ BSC.pack $ enrollmentToken enrNixMachine :: Digest SHA256
     handleTokenValidation (dbConn conn) $ BA.convert tokenHash
-    insertMachine conn nixMachine
-
+    affected <- insertMachine conn $ machineDetails enrNixMachine
+    when (affected == 0) $ throwIO $ userError "Failed to insert machine record into the database."
+    return ()
+    
    
 
 deregisterMachine :: Connection -> String -> ()

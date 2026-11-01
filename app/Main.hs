@@ -68,10 +68,9 @@ main = do
 app :: DB.ConnectionPool -> Application
 app pool request respond
   | isRegisterRequest method action = withConnection pool request registerMachine
-    >>= (respond . simpleResponse)
   | isDeregisterRequest method action = undefined
   | isPoll method action = undefined
-  | otherwise = respond $ responseLBS status400 [] "Malformed request"
+  | otherwise = respond $ responseLBS status400 [] ""
   where
     method = requestMethod request
     action = T.unpack $ last $ pathInfo request
@@ -82,8 +81,8 @@ app pool request respond
 -- place holder simple response 
 simpleResponse :: Bool -> Response
 simpleResponse isSuccess = if isSuccess
-                             then responseLBS status200 [] "Success"
-                             else responseLBS status400 [] "Invalid"
+                             then responseLBS status200 [] ""
+                             else responseLBS status400 [] ""
 
 
 

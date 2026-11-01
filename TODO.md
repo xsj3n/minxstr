@@ -11,3 +11,4 @@
 [ ] - config file
 [ ] - error handling
 [ ] - actually add logging statements 
+[ ] - define better statuses & responses to send back to the client 

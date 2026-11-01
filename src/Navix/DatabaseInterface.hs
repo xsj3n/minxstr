@@ -1,8 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Navix.DatabaseInterface
-  ( withConnection
-  , ConnectionPool
+  ( ConnectionPool
   , ConnectionType
   , DatabaseConnection
   , dbConn
@@ -34,13 +33,17 @@ import Control.Monad.State.Strict (runState, State, MonadState (put, get), State
 import Control.Monad.Extra (replicateM)
 import GHC.Conc (TVar)
 import GHC.Conc.Sync (newTVarIO)
-import Network.Wai (Request)
+import Network.Wai (Request, Response, responseLBS)
 import Control.Concurrent.STM (modifyTVar')
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent.STM (readTVar)
 import Control.Concurrent.STM (writeTVar)
 import Control.Concurrent.STM (retry)
 import Control.Exception (bracket)
+import Control.Monad.Catch (generalBracket, ExitCase (ExitCaseAbort, ExitCaseException, ExitCaseSuccess))
+import Network.HTTP.Types (status200)
+import Network.HTTP.Types.Status (status500)
+import Network.HTTP.Types (status300)
 
 
 
@@ -59,7 +62,7 @@ getConnection :: Int -> IO DatabaseConnection
 getConnection id = do
   dbConn <- connect getConnectionInfo
   return DatabaseConnection {id = id, dbConn = dbConn, dbConnType = Unprivileged }
-
+ 
 poolBuilder :: StateT Int IO (DatabaseConnection)
 poolBuilder = do
   count <- get
@@ -72,16 +75,24 @@ createConnectionPool connCount = do
   conns <- evalStateT (replicateM connCount poolBuilder) 0
   ConnectionPool <$> newTVarIO conns
 
-withConnection :: ConnectionPool -> Request -> (Request -> DatabaseConnection -> IO a) -> IO a
-withConnection (ConnectionPool var) request action  =
-  generalBracket acquire release (action request) 
+withConnection :: ConnectionPool -> Request -> (Request -> DatabaseConnection -> IO a) -> IO Response
+withConnection (ConnectionPool var) request action  = do
+  (_, r) <- generalBracket acquire release (action request) 
+  return r 
   where
     acquire = atomically $ do
       conns <- readTVar var
       case conns of
         []     -> retry
-        c:cs -> writeTVar var cs >> return c   
-    release c = endTransaction c >> (atomically $ modifyTVar' var (c :))
+        c:cs -> writeTVar var cs >> return c
+        
+    release c exitCase = case exitCase of
+        ExitCaseSuccess _   -> endTransaction True c  >> (atomically $ modifyTVar' var (c :))  >> (return $ responseLBS status200 [] "") 
+        ExitCaseException _ -> endTransaction False c >> (atomically $ modifyTVar' var (c :))  >> (return $ responseLBS status300 [] "")
+        ExitCaseAbort       -> endTransaction False c >> (atomically $ modifyTVar' var (c :))  >> (return $ responseLBS status500 [] "")
+      
+
+
   
 getSuperUserConnection :: IO DatabaseConnection
 getSuperUserConnection = do
@@ -178,6 +189,7 @@ endTransaction :: Bool -> DatabaseConnection -> IO ()
 endTransaction isOkay con
   | isOkay == True  = commit $ dbConn con 
   | isOkay == False = rollback $ dbConn con 
+
 
 
 -- helper functions for reading sql queries out of files
