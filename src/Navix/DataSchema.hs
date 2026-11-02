@@ -8,6 +8,7 @@ import Database.PostgreSQL.Simple.FromRow
 import Database.PostgreSQL.Simple.ToRow
 import Database.PostgreSQL.Simple.ToField
 import Data.Time (UTCTime)
+import Data.Int (Int64)
 
 data PollResponse = PollResponse
   { wipe          :: Bool
@@ -36,7 +37,7 @@ instance FromRow PollResponse where
     fromRow = PollResponse <$> field <*> field <*> field <*> field <*> field <*> field <*> field
 ------------------------------
 data NixMachine = NixMachine
-  { id                  :: Int
+  { machineID           :: Int64
   , deviceName          :: String 
   , assignedCert        :: String
   , hardwareFingerprint :: String

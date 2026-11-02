@@ -33,4 +33,6 @@ create table if not exists nix.enrollment_tokens(
     revoked_at timestamptz
 );
 --
-create index idxMachineActionsRefId on nix.machine_actions(machineId);
+create index if not exists idxMachineActionsRefId on nix.machine_actions(machineId);
+--
+create unique index if not exists idxMachinesDeviceName on nix.machines(deviceName);

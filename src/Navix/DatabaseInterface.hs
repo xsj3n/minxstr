@@ -4,6 +4,9 @@ module Navix.DatabaseInterface
   ( ConnectionPool
   , ConnectionType
   , DatabaseConnection
+  , checkAffected
+  , deleteMachineRecord
+  , withConnection
   , dbConn
   , createConnectionPool
   , consumeToken
@@ -33,7 +36,7 @@ import Control.Monad.State.Strict (runState, State, MonadState (put, get), State
 import Control.Monad.Extra (replicateM)
 import GHC.Conc (TVar)
 import GHC.Conc.Sync (newTVarIO)
-import Network.Wai (Request, Response, responseLBS)
+import Network.Wai (Request, Response, responseLBS, ResponseReceived)
 import Control.Concurrent.STM (modifyTVar')
 import Control.Concurrent.STM (atomically)
 import Control.Concurrent.STM (readTVar)
@@ -44,6 +47,8 @@ import Control.Monad.Catch (generalBracket, ExitCase (ExitCaseAbort, ExitCaseExc
 import Network.HTTP.Types (status200)
 import Network.HTTP.Types.Status (status500)
 import Network.HTTP.Types (status300)
+import Control.Exception.Base (throwIO)
+import Control.Exception (throw)
 
 
 
@@ -95,7 +100,7 @@ withConnection (ConnectionPool var) request action  = do
 
   
 getSuperUserConnection :: IO DatabaseConnection
-getSuperUserConnection = do
+getSuperUserConnection = do 
   dbConn <- connect getSuperUserConnectionInfo
   return DatabaseConnection { id = 0, dbConn = dbConn, dbConnType = Privileged }
 
@@ -128,24 +133,39 @@ initDatabase = do
   close $ dbConn superUserConnection
 
 ----
+---- general info fetching
+----
+
+getMachineRecord :: Connection -> String -> IO [NixMachine]
+getMachineRecord conn name = do
+  sQuery <- getMachineRecordQuery
+  query conn sQuery $ Only name 
+
+getMachineRecordQuery :: IO Query
+getMachineRecordQuery = readQueryFile "./queries/fetch/get-machine-by-device-name.sql"
+----
 ---- enrollment token related
 ----
 insertToken :: Connection -> ByteString  -> IO Int64
-insertToken con tokenHash = do
+insertToken conn tokenHash = do
   sQuery <- insertEnrollmentTokenQuery
-  execute con sQuery $ Only $ Binary tokenHash
+  execute conn sQuery $ Only $ Binary tokenHash
 
 
 getTokenInfo :: Connection -> ByteString -> IO [TokenValidityInfo]
-getTokenInfo con tokenHash = do
+getTokenInfo conn tokenHash = do
   sQuery <- getTokenInfoQuery
-  query con sQuery $ Only $ Binary tokenHash
+  query conn sQuery $ Only $ Binary tokenHash
 
 consumeToken :: Connection -> ByteString -> IO Int64
-consumeToken con tokenHash = do
+consumeToken conn tokenHash = do
   sQuery <- consumeTokenQuery
-  execute con sQuery $ Only $ Binary tokenHash
+  execute conn sQuery $ Only $ Binary tokenHash
 
+deleteMachineRecord :: Connection -> Int64 -> IO Int64
+deleteMachineRecord conn id = do
+  sQuery <- getDeregisterQuery
+  execute conn sQuery $ Only id 
 
 insertEnrollmentTokenQuery :: IO Query
 insertEnrollmentTokenQuery = readQueryFile "./queries/registration/insert-token.sql" 
@@ -160,7 +180,10 @@ consumeTokenQuery = readQueryFile "./queries/registration/consume-token.sql"
 ---- registration related
 ----
 getRegistrationQuery :: IO Query
-getRegistrationQuery = readQueryFile "./queries/register.sql"
+getRegistrationQuery = readQueryFile "./queries/registration/register.sql"
+
+getDeregisterQuery :: IO Query
+getDeregisterQuery = readQueryFile "./queries/registration/deregister.sql"
 
 checkForDatabaseQuery :: Query
 checkForDatabaseQuery = "select exists (select 1 from pg_database where datname = 'managed');"
@@ -176,6 +199,10 @@ insertMachine conn nixMachine = do
 ----
 ---- sql query function helpers 
 ----
+checkAffected :: Int64 -> String -> IO ()
+checkAffected n msg =
+  if n == 1 then return ()
+  else throwIO $ userError msg  
 
 runQueries_ :: DatabaseConnection -> [Query] -> IO Int64
 runQueries_ con queries = sum <$> mapM (execute_ $ dbConn con) queries 
