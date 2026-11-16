@@ -1,5 +1,5 @@
 insert into nix.machines(
-    deviceName,
-    assignedCert,
-    hardwareFingerprint
+    device_name,
+    assigned_cert,
+    hardware_fingerprint
 ) values (?,?,?);

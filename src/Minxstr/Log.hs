@@ -1,4 +1,4 @@
-module Navix.Log where
+module Minxstr.Log where
 
 import System.IO (IOMode (AppendMode), hClose, hPutStrLn, openFile)
 import Data.Time (defaultTimeLocale, formatTime, getZonedTime)
@@ -7,7 +7,7 @@ data LogLevel = Debug | Info | Warn | Error | Fatal
   deriving (Eq, Ord, Show)
 
 logFilePath :: FilePath
-logFilePath = "./navix.log"
+logFilePath = "./minxstr.log"
 
 logMessage :: LogLevel -> String -> IO ()
 logMessage level msg = do

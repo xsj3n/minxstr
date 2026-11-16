@@ -1,5 +1,5 @@
 cabal-version:      3.0
-name:               Navix
+name:               Minxstr
 version:            0.1.0.0
 -- synopsis:
 -- description:
@@ -11,20 +11,22 @@ maintainer:         ""
 category:           System
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
--- extra-source-files:
+-- embedded into the binary by Minxstr.Queries at compile time
+extra-source-files: queries/**/*.sql
 
 common warnings
     ghc-options: -Wall
 
 library
-    exposed-modules: Navix.PKI,
-                     Navix.DataSchema,
-                     Navix.Poll,
-                     Navix.DatabaseInterface,
-                     Navix.Registration,
-                     Navix.TLS,
-                     Navix.Log,
-                     Navix.Configuration
+    exposed-modules: Minxstr.PKI,
+                     Minxstr.DataSchema,
+                     Minxstr.Poll,
+                     Minxstr.DatabaseInterface,
+                     Minxstr.Registration,
+                     Minxstr.TLS,
+                     Minxstr.Log,
+                     Minxstr.Configuration,
+                     Minxstr.Queries
 
     hs-source-dirs: src
 
@@ -57,11 +59,12 @@ library
                     network,
                     time,
                     tomland,
+                    file-embed,
                     base
 
     default-language: GHC2024
 
-executable Navix
+executable Minxstr
     import:           warnings
     main-is:          Main.hs
     
@@ -87,7 +90,7 @@ executable Navix
                     tls,
                     wai,
                     network,
-                    Navix
+                    Minxstr
 
 
     build-depends:    base ^>=4.20.2.0
@@ -100,17 +103,9 @@ test-suite pki-test
     main-is: Test.hs
     build-depends: base,
                    extra,
+                   directory,
                    crypton-x509-validation,
-                   Navix
-    default-language: GHC2024
-
-test-suite query-test
-    type: exitcode-stdio-1.0
-    hs-source-dirs: tests/query/
-    main-is: Test.hs
-    build-depends: base,
-                   extra,
-                   Navix
+                   Minxstr
     default-language: GHC2024
 
 test-suite log-test
@@ -118,5 +113,5 @@ test-suite log-test
     hs-source-dirs: tests/log/
     main-is: Test.hs
     build-depends: base,
-                   Navix
+                   Minxstr
     default-language: GHC2024

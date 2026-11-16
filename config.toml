@@ -1,0 +1,16 @@
+[server]
+port = 3000
+
+[database]
+host = "localhost"
+port = 5432
+user = "xs"
+name = "managed"
+pool_size = 20
+
+[pki]
+cert_store_dir = "./cert-store/"
+common_name = "Minxstr.local"
+curve = "prime256v1"
+root_cert_validity_days = 3650
+tls_cert_validity_days = 360

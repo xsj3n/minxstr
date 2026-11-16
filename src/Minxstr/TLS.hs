@@ -1,4 +1,4 @@
-module Navix.TLS where
+module Minxstr.TLS where
 import qualified Data.ByteString as BS
 import qualified Network.TLS as TLS
 import Data.X509.Validation (FailedReason, validate, defaultChecks, defaultHooks)

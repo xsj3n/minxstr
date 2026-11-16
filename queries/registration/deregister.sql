@@ -1,1 +1,1 @@
-delete from nix.machines where machineid = ?; 
+delete from nix.machines where id = ?;

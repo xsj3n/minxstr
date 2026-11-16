@@ -1,13 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- this file is claude slop bc i didnt want to write ts 
-module Navix.Configuration
-  ( NavixConfiguration (..)
+module Minxstr.Configuration
+  ( MinxstrConfiguration (..)
   , ServerConfig (..)
   , DatabaseConfig (..)
   , PKIConfig (..)
   , defaultConfiguration
   , loadConfiguration
+  , resolveConfigPath
   ) where
+
+import System.Environment (getArgs, lookupEnv)
 
 import qualified Toml
 import Toml (TomlCodec, (.=))
@@ -24,6 +27,7 @@ data DatabaseConfig = DatabaseConfig
   , databaseUser :: String
   , databasePort :: Int
   , databaseName :: String
+  , databasePoolSize :: Int
   } deriving (Eq, Show)
 
 data PKIConfig = PKIConfig
@@ -34,7 +38,7 @@ data PKIConfig = PKIConfig
   , pkiTlsCertValidityDays  :: Int
   } deriving (Eq, Show)
 
-data NavixConfiguration = NavixConfiguration
+data MinxstrConfiguration = MinxstrConfiguration
   { serverConfig   :: ServerConfig
   , databaseConfig :: DatabaseConfig
   , pkiConfig      :: PKIConfig
@@ -42,8 +46,8 @@ data NavixConfiguration = NavixConfiguration
 
 -- what's already hardcoded elsewhere today, kept here as the fallback
 -- for whatever a config file leaves unset
-defaultConfiguration :: NavixConfiguration
-defaultConfiguration = NavixConfiguration
+defaultConfiguration :: MinxstrConfiguration
+defaultConfiguration = MinxstrConfiguration
   { serverConfig = ServerConfig
       { serverPort = 3000
       }
@@ -52,17 +56,18 @@ defaultConfiguration = NavixConfiguration
       , databaseUser = "xs"
       , databasePort = 5432
       , databaseName = "managed"
+      , databasePoolSize = 20
       }
   , pkiConfig = PKIConfig
       { pkiCertStoreDir         = "./cert-store/"
-      , pkiCommonName           = "Navix.local"
+      , pkiCommonName           = "Minxstr.local"
       , pkiCurve                = "prime256v1"
       , pkiRootCertValidityDays = 3650
       , pkiTlsCertValidityDays  = 360
       }
   }
 
--- mirrors NavixConfiguration field-for-field, but every field optional,
+-- mirrors MinxstrConfiguration field-for-field, but every field optional,
 -- so an admin's config file only has to mention what it wants to override
 data PartialServerConfig = PartialServerConfig
   { partialServerPort :: Maybe Int
@@ -73,6 +78,7 @@ data PartialDatabaseConfig = PartialDatabaseConfig
   , partialDatabaseUser :: Maybe String
   , partialDatabasePort :: Maybe Int
   , partialDatabaseName :: Maybe String
+  , partialDatabasePoolSize :: Maybe Int
   }
 
 data PartialPKIConfig = PartialPKIConfig
@@ -99,6 +105,7 @@ databaseCodec = PartialDatabaseConfig
   <*> Toml.dioptional (Toml.string "user") .= partialDatabaseUser
   <*> Toml.dioptional (Toml.int    "port") .= partialDatabasePort
   <*> Toml.dioptional (Toml.string "name") .= partialDatabaseName
+  <*> Toml.dioptional (Toml.int    "pool_size") .= partialDatabasePoolSize
 
 pkiCodec :: TomlCodec PartialPKIConfig
 pkiCodec = PartialPKIConfig
@@ -114,8 +121,8 @@ configCodec = PartialConfiguration
   <*> Toml.table databaseCodec "database" .= partialDatabaseConfig
   <*> Toml.table pkiCodec      "pki"      .= partialPkiConfig
 
-applyDefaults :: PartialConfiguration -> NavixConfiguration
-applyDefaults partial = NavixConfiguration
+applyDefaults :: PartialConfiguration -> MinxstrConfiguration
+applyDefaults partial = MinxstrConfiguration
   { serverConfig = ServerConfig
       { serverPort = fromMaybe (serverPort defServer) (partialServerPort partServer)
       }
@@ -124,6 +131,7 @@ applyDefaults partial = NavixConfiguration
       , databaseUser = fromMaybe (databaseUser defDatabase) (partialDatabaseUser partDatabase)
       , databasePort = fromMaybe (databasePort defDatabase) (partialDatabasePort partDatabase)
       , databaseName = fromMaybe (databaseName defDatabase) (partialDatabaseName partDatabase)
+      , databasePoolSize = fromMaybe (databasePoolSize defDatabase) (partialDatabasePoolSize partDatabase)
       }
   , pkiConfig = PKIConfig
       { pkiCertStoreDir         = fromMaybe (pkiCertStoreDir defPki) (partialPkiCertStoreDir partPki)
@@ -141,7 +149,24 @@ applyDefaults partial = NavixConfiguration
     defPki      = pkiConfig defaultConfiguration
     partPki     = partialPkiConfig partial
 
-loadConfiguration :: FilePath -> IO NavixConfiguration
+-- where to look for the config file, in priority order:
+--   1. `--config PATH` on the command line (what the systemd unit passes)
+--   2. the MINXSTR_CONFIG environment variable
+--   3. ./config.toml (the dev-shell default)
+resolveConfigPath :: IO FilePath
+resolveConfigPath = do
+  args   <- getArgs
+  envVar <- lookupEnv "MINXSTR_CONFIG"
+  return $ case (flagValue args, envVar) of
+    (Just path, _)       -> path
+    (Nothing, Just path) -> path
+    (Nothing, Nothing)   -> "./config.toml"
+  where
+    flagValue ("--config" : path : _) = Just path
+    flagValue (_ : rest)              = flagValue rest
+    flagValue []                      = Nothing
+
+loadConfiguration :: FilePath -> IO MinxstrConfiguration
 loadConfiguration path = do
   exists <- doesFileExist path
   if not exists

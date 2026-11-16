@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Navix.DataSchema where
+module Minxstr.DataSchema where
 import GHC.Generics
 import Data.Aeson
 import qualified Data.Aeson.KeyMap as KM

@@ -1,12 +1,10 @@
 cradle:
   cabal:
     - path: "src"
-      component: "lib:Navix"
+      component: "lib:Minxstr"
     - path: "app"
-      component: "exe:Navix"
+      component: "exe:Minxstr"
     - path: "tests/pki"
       component: "test:pki-test"
-    - path: "tests/query"
-      component: "test:query-test"
     - path: "tests/log"
       component: "test:log-test"

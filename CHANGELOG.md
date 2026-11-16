@@ -1,4 +1,9 @@
-# Revision history for Navix
+# Revision history for Minxstr
+
+## 0.0.1.1
+
+## Changed
+- Name change to Minxstr
 
 ## 0.0.1
 

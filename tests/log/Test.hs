@@ -1,5 +1,5 @@
 module Main where
-import Navix.Log
+import Minxstr.Log
 import Data.List (isInfixOf)
 import System.Exit (exitSuccess, exitFailure)
 

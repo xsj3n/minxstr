@@ -8,7 +8,7 @@
 
   outputs = { nixpkgs, ... }:
   let
-    name = "Navix"; 
+    name = "Minxstr"; 
     system = "x86_64-linux";
     src = ./.;
     pkgs = import nixpkgs { inherit system; };
@@ -36,6 +36,7 @@
     {
       inherit  name nativeBuildInputs;
       shellHook = ''
+      alias claude="claude --plugin-dir=./.claude/plugins/haskell-lsp"
       if [ ! -d ./database ]; then
         initdb -D ./database
        fi
@@ -48,7 +49,8 @@
       # -l specifies logfile path | start spins up the server in the backgroud
       export PGDATA=./database
       export PGHOST=/tmp
-      pg_ctl -o "-k /tmp" -l logfile start 
+      pg_ctl -o "-k /tmp" -l logfile start
+      trap 'pg_ctl -D ./database stop -m fast' EXIT  
 
       export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath nativeBuildInputs }
       '';

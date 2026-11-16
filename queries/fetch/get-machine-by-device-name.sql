@@ -1,3 +1,3 @@
-select id, deviceName, assignedCert, hardwareFingerprint, enabled, compliant, createdAt
+select id, device_name, assigned_cert, hardware_fingerprint, enabled, compliant, created_at
 from nix.machines
-where deviceName = ?;
+where device_name = ?;

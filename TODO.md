@@ -1,3 +1,10 @@
+## Imminent 
+[ ] - Set up NixOSTests for E2E tests. setting this up now will pay dividends
+  [ ] - Configure Minxstr as a systemd service
+  [ ] - Configure Navix-client as a systemd service
+  [x] - Update relative paths  
+
+## Other 
 [ ] - implement a way to configure poll intervals & mechanisms
 [x] - make basic enrollment flow 
 [ ] - iron out the mTLS implementation

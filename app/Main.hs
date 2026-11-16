@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
-import qualified Navix.DatabaseInterface as DB
-import Navix.Registration
-import Navix.Configuration
-import qualified Navix.PKI as PKI
+import qualified Minxstr.DatabaseInterface as DB
+import Minxstr.Registration
+import Minxstr.Configuration
+import qualified Minxstr.PKI as PKI
 import Network.Wai
 import Network.Wai.Handler.WarpTLS
 import Network.Wai.Handler.Warp
@@ -13,9 +13,8 @@ import Prelude
 import System.Exit
 import qualified Data.Text as T
 import Control.Monad (unless)
-import System.Directory.Extra (listFiles)
-import Control.Monad.Extra (whenM)
-import Navix.DatabaseInterface (withConnection)
+import Control.Monad.Extra (unlessM)
+import Minxstr.DatabaseInterface (withConnection)
 
 
 isRegisterRequest :: Method -> String -> Bool
@@ -29,17 +28,24 @@ isPoll method action = method == methodGet && action == "poll"
 
 main :: IO ()
 main = do
-  cfg <- loadConfiguration "./config.toml"  
+  cfgPath <- resolveConfigPath
+  putStrLn $ "[*] Loading configuration from " ++ cfgPath
+  cfg <- loadConfiguration cfgPath
+  let pkiCfg = pkiConfig cfg
+      dbCfg  = databaseConfig cfg
+
   -- TODO: implement allowances for pre-configured
-  whenM (null <$> listFiles PKI.certStoreDir) PKI.initPKI  
-  failuresList <- PKI.verifyPKI "Navix.local" 
-  unless (null failuresList) (PKI.printAllReasons failuresList >> exitFailure)   
-  pool <- DB.createConnectionPool 20
-  
+  unlessM (PKI.isPKIInitialized pkiCfg) (PKI.initPKI pkiCfg)
+  failuresList <- PKI.verifyPKI pkiCfg
+  unless (null failuresList) (PKI.printAllReasons failuresList >> exitFailure)
+
+  DB.initDatabase dbCfg
+  pool <- DB.createConnectionPool dbCfg
+
   -- maybe this should be the same as whats kept in the cert-store, maybe not
-  -- let tlsOpts = mutualTLSSettings PKI.tlsCertPath PKI.tlsKeyPath
-  let tlsOpts = tlsSettings PKI.tlsCertPath PKI.tlsKeyPath
-  let port = 3000
+  -- let tlsOpts = mutualTLSSettings (PKI.tlsCertPath pkiCfg) (PKI.tlsKeyPath pkiCfg)
+  let tlsOpts = tlsSettings (PKI.tlsCertPath pkiCfg) (PKI.tlsKeyPath pkiCfg)
+  let port = serverPort $ serverConfig cfg
 
   putStrLn $ "[*] Listening on https://localhost:" ++ show port
   runTLS tlsOpts (setPort port defaultSettings) $ app pool

@@ -1,4 +1,4 @@
-# Navix
+# Minxstr
 ---
 A fleet manager for NixOS workstations & servers. Development has just begun.
 
